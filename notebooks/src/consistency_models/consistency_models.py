@@ -9,9 +9,9 @@ from tqdm.auto import tqdm
 from .utils import pad_dims_like
 
 
-def timesteps_schedule(  # N(k)  decide the number of timesteps N at each k
-    current_training_step: int,  # k: current step
-    total_training_steps: int,  # K: total steps
+def timesteps_schedule(
+    current_training_step: int,
+    total_training_steps: int,
     initial_timesteps: int = 2,
     final_timesteps: int = 150,
 ) -> int:
@@ -401,20 +401,18 @@ class ConsistencyTraining:
             total_training_steps,
             self.initial_timesteps,
             self.final_timesteps,
-        )  # N(k)  divided [sigma_min, sigma_max] into N(k) - 1 intervals
+        )
         sigmas = karras_schedule(
             num_timesteps, self.sigma_min, self.sigma_max, self.rho, x.device
-        )  # sigma_min <= sigma_1 <= sigma_2 <= ... <= sigma_N <= sigma_max
-        noise = torch.randn_like(x)  # z ~ N(0, I)
+        )
+        noise = torch.randn_like(x)
 
-        timesteps = torch.randint(
-            0, num_timesteps - 1, (x.shape[0],), device=x.device
-        )  # sample n ~ U[1, N(k) - 1] for each x_i
+        timesteps = torch.randint(0, num_timesteps - 1, (x.shape[0],), device=x.device)
 
-        current_sigmas = sigmas[timesteps]  # sigma_n
-        next_sigmas = sigmas[timesteps + 1]  # sigma_{n+1}
+        current_sigmas = sigmas[timesteps]
+        next_sigmas = sigmas[timesteps + 1]
 
-        next_noisy_x = x + pad_dims_like(next_sigmas, x) * noise  # x_{n+1} = x + sigma_{n+1} * z 
+        next_noisy_x = x + pad_dims_like(next_sigmas, x) * noise
         next_x = model_forward_wrapper(
             student_model,
             next_noisy_x,
@@ -422,10 +420,10 @@ class ConsistencyTraining:
             self.sigma_data,
             self.sigma_min,
             **kwargs,
-        )   # f_theta(x_{n+1}, sigma_{n+1})
+        )
 
         with torch.no_grad():
-            current_noisy_x = x + pad_dims_like(current_sigmas, x) * noise  # x_n = x + sigma_n * z
+            current_noisy_x = x + pad_dims_like(current_sigmas, x) * noise
             current_x = model_forward_wrapper(
                 teacher_model,
                 current_noisy_x,
@@ -433,7 +431,7 @@ class ConsistencyTraining:
                 self.sigma_data,
                 self.sigma_min,
                 **kwargs,
-            )   # f_theta_bar(x_n, sigma_n)
+            )
 
         return ConsistencyTrainingOutput(next_x, current_x, num_timesteps, sigmas)
 
@@ -636,7 +634,7 @@ class ConsistencySamplingAndEditing:
         y = self.__mask_transform(x, y, mask, transform_fn, inverse_transform_fn)
         # For tasks like interpolation where noise will already be added in advance we
         # can skip the noising process
-        x = y + sigmas[0] * torch.randn_like(y) if add_initial_noise else y # x ~ N(0, sigma_1^2)
+        x = y + sigmas[0] * torch.randn_like(y) if add_initial_noise else y
         sigma = torch.full((x.shape[0],), sigmas[0], dtype=x.dtype, device=x.device)
         x = model_forward_wrapper(
             model, x, sigma, self.sigma_data, self.sigma_min, **kwargs
